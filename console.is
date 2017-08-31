@@ -1,0 +1,8 @@
+typespace Console {
+    var log = {};
+
+    define log(message) {
+        $this.log[Date.now()] = message;
+        console.log(message);
+    }
+}
