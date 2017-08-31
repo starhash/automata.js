@@ -1,0 +1,353 @@
+typespace Console {
+    var log = {};
+
+    define log(message) {
+        $this.log[Date.now()] = message;
+        console.log(message);
+    }
+}
+
+typespace Automata {
+    var _spawnedAutomata = [];
+
+    define spawn(_automata) {
+        $this._spawnedAutomata.push(_automata);
+    }
+
+    define spawned() {
+        return $this._spawnedAutomata;
+    }
+
+    type Automaton {
+        with () {
+            $this.running = false;
+            $this._count = 0;
+            $this._life = 0;
+            Automata.spawn($this);
+        }
+        with (_run, _delta, _stop, _life) {
+            $this.running = false;
+            $this._run = _run;
+            $this._delta = _delta;
+            $this._stop = _stop;
+            $this._count = 0;
+            $this._life = _life;
+        }
+
+        define stop() {
+            if ($this.running) {
+                $this.running = false;
+                $this._count = 0;
+                $this._end = Date.now();
+                $this._stop();
+            }
+        }
+
+        define run() {
+            if ($this.running && ($this._life > $this._count)) {
+                $this._run();
+                $this._count += 1;
+                setTimeout(define () {
+                    $this.run();
+                }, $this._delta);
+            } else {
+                $this.stop();
+            }
+        }
+
+        define start() {
+            if ($this.running == false) {
+                $this._begin = Date.now();
+                $this.running = true;
+                $this.run();
+            }
+        }
+    }
+
+    enum CellState {
+        Unborn,
+        Living,
+        Dead
+    }
+
+    enum CellType {
+        None,
+        EnergyProducer,
+        EnergyConsumer,
+        ReproductiveConsumer
+    }
+    
+    type Cell : /Automata/Automaton {
+        var connections = {};
+        var connectionStateActions = {};
+        var state = /Automata/CellState.Living;
+
+        with () {
+            $this.connections.in = [];
+            $this.connections.inLimit = 0;
+            $this.connections.out = [];
+            $this.connections.outLimit = 0;
+            $this._delta = 1000;
+            $this._begin = -1;
+            $this._end = 0;
+            $this._type = Automata.CellType.None;
+        }
+
+        with (_life) {
+            $this.connections.in = [];
+            $this.connections.inLimit = 0;
+            $this.connections.out = [];
+            $this.connections.outLimit = 0;
+            $this._delta = 1000;
+            $this._life = _life;
+            $this._begin = -1;
+            $this._end = 0;
+        }
+
+        define getBegin() {
+            if ($this._begin !== -1) {
+                return $this._begin;
+            }
+            return 0;
+        }
+
+        define getEnd() {
+            if ($this._end !== 0) {
+                return $this._end;
+            }
+            return Date.now();
+        }
+
+        define addOutConnection(cell) {
+            if ($this.connections.out.length < $this.connections.outLimit) {
+                $this.connections.out.push(cell);
+                if ($this._addOutConnection !== undefined) {
+                    $this._addOutConnection(cell);
+                }
+            }
+        }
+
+        define addInConnection(cell) {
+            if ($this.connections.in.length < $this.connections.inLimit) {
+                $this.connections.in.push(cell);
+                if ($this._addInConnection !== undefined) {
+                    $this._addInConnection(cell);
+                }
+            }
+        }
+
+        define _run() {
+            Console.log("OK " + $this._count);
+        }
+
+        define _stop() {
+            Console.log("STOPPED");
+        }
+    }
+
+    typespace Energy {
+        type Producer : /Automata/Cell {
+            static var _spawnedProducers = [];
+
+            static define spawn(_producer) {
+                $this.Producer._spawnedProducers.push(_producer);
+            }
+
+            static define spawned() {
+                return $this.Producer._spawnedProducers;
+            }
+
+            with (name, cons, prod, growth) {
+                $this._life = 1;
+                $this._consumption = cons;
+                $this._production = prod;
+                $this._energyStore = cons;
+                $this._growth = growth;
+                $this._growthCPFactor = prod / cons;
+                $this.connections.outLimit = 8;
+                $this.connections.inLimit = 4;
+                $this._actions = [ "energy.transfer" ];
+                $this._name = name;
+                $this._type = Automata.CellType.EnergyProducer;
+                Automata.Energy.Producer.spawn($this);
+            }
+
+            define _onProduction() {
+                Console.log($this._name + " PRODUCE " + $this._production + ", STORE " + $this._energyStore);
+            }
+
+            define _onConsumption() {
+                Console.log($this._name + " CONSUMED " + $this._consumption);
+            }
+
+            define produce() {
+                $this._energyStore += $this._production;
+                $this._onProduction();
+                $this._consumption += $this._growth;
+            }
+
+            define consume() {
+                $this._energyStore -= $this._consumption;
+                $this._onConsumption();
+                $this._consumption += $this._growth;
+                $this._growth = Math.sqrt(2 * Math.pow($this._growth, 2));
+            }
+
+            define _addOutConnection(cell) {
+                cell.addInConnection($this);
+                cell.connectionStateActions[$this._actions[0]] = $this._transferAction;
+            }
+
+            define _transferAction(cell, amount) {
+                cell._energyStore += amount;
+                $this._energyStore -= amount;
+                Console.log($this._name + " TRANSFER " + amount);
+            }
+
+            define _transfer() {
+                $this.connections.out.forEach(define (cell) {
+                    if ((cell.running) && ($this._energyStore > cell._consumption)) {
+                        cell.connectionStateActions[$this._actions[0]](cell, cell._consumption);
+                    }
+                });
+                Console.log($this._name + " REMAIN " + $this._energyStore);
+            }
+
+            define _stop() {
+                Console.log($this._name + " STOPPED");
+                $this.running = false;
+                $this._production = 0;
+                $this._consumption = 0;
+                $this._energyStore = 0;
+            }
+
+            define _run() {
+                $this.consume();
+                $this.produce();
+                $this._transfer();
+            }
+
+            define run() {
+                if ($this._energyStore >= $this._consumption) {
+                    $this._run();
+                    setTimeout(define () {
+                        $this.run();
+                    }, $this._delta);
+                } else {
+                    $this.stop();
+                }
+            }
+        }
+
+        type Consumer : /Automata/Cell {
+            static var _spawnedConsumers = [];
+
+            static define spawn(_consumer) {
+                $this.Consumer._spawnedConsumers.push(_consumer);
+            }
+
+            static define spawned() {
+                return $this.Consumer._spawnedConsumers;
+            }
+
+            with () {
+                $this._type = Automata.CellType.EnergyConsumer;
+                $this.connections.inLimit = 4;
+                Automata.Energy.Consumer.spawn($this);
+            }
+            with (name, cons, growth) {
+                $this._consumption = cons;
+                $this._energyStore = cons;
+                $this._growth = growth;
+                $this._name = name;
+                $this._type = Automata.CellType.EnergyConsumer;
+                $this.connections.inLimit = 4;
+                Automata.Energy.Consumer.spawn($this);
+            }
+
+            define _onConsumption() {
+                Console.log($this._name + " CONSUMED " + $this._consumption);
+            }
+
+            define _consumerAction() {
+
+            }
+
+            define consume() {
+                $this._energyStore -= $this._consumption;
+                $this._onConsumption();
+                $this._consumerAction();
+                $this._consumption += $this._growth;
+                $this._growth = Math.sqrt(1 * Math.pow($this._growth, 2));
+            }
+
+            define _run() {
+                $this.consume();
+                $this._count += 1;
+            }
+
+            define _stop() {
+                Console.log($this._name + " STOPPED");
+                $this.running = false;
+                $this._consumption = 0;
+                $this._energyStore = 0;
+            }
+
+            define run() {
+                if ($this._energyStore >= $this._consumption) {
+                    $this._run();
+                    setTimeout(define () {
+                        $this.run();
+                    }, $this._delta);
+                } else {
+                    $this.stop();
+                }
+            }
+        }
+
+        type ReproductiveConsumer : /Automata/Energy/Consumer {
+            with (name, cons, growth, splitThreshold, splitFactor) {
+                $this._splitThreshold = splitThreshold;
+                $this._splitFactor = splitFactor;
+                $this._consumption = cons;
+                $this._energyStore = cons;
+                $this._growth = growth;
+                $this._name = name;
+                $this._children = [];
+                $this._type = /Automata/CellType.ReproductiveConsumer;
+            }
+
+            define _produceRandomProducer(random, child) {
+                var producer = /Automata/Energy/Producer($this._name + "_Prod" + $this._children.length, $this._consumption * random, $this._energyStore * (1 - random), $this._growth * random);
+                producer.addOutConnection(child);
+                $this._children.push(producer._name);
+                producer.start();
+            }
+
+            define split() {
+                $this._consumption = $this._splitFactor * $this._consumption;
+                $this._production = $this._splitFactor * $this._production;
+                $this._energyStore = $this._splitFactor * $this._energyStore;
+                var child = /Automata/Energy/ReproductiveConsumer($this._name + "_" + $this._children.length, $this._consumption, $this._growth, $this._splitThreshold, $this._splitFactor);
+                $this.connections.in.forEach(define (_connection) {
+                    _connection.addOutConnection(child);
+                });
+                $this._children.push(child._name);
+                child.start();
+
+                var random = Math.random();
+                if (random < $this._splitFactor) {
+                    $this._produceRandomProducer(random, child);
+                }
+            }
+
+            define _run() {
+                if ($this._consumption > $this._splitThreshold) {
+                    $this.split();
+                }
+                $this.consume();
+                $this._count += 1;
+            }
+        }
+    }
+}

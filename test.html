@@ -1,0 +1,90 @@
+<html>
+
+<head>
+    <script src="scripts/angular.js"></script>
+</head>
+
+<body ng-app="automataApp">
+    <style>
+        .panel {
+            height: calc(100vh - 38px);
+            min-height: calc(100vh - 38px);
+            max-height: calc(100vh - 38px);
+            box-shadow: 0px 0px 2px #000000;
+            background-color: #eeeeee;
+        }
+    </style>
+    <script src="scripts/loader.js"></script>
+    <script src="scripts/cytoscape.js"></script>
+    <script src="scripts/cytoscape-cose-bilkent.js"></script>
+    <script src="automata.js"></script>
+    <script src="automata-monitor.js"></script>
+    <script>
+        var app = angular.module("automataApp", []);
+        app.controller("mainController", ['$scope', function ($scope) {
+            $scope.selected = 'automatonLifespan';
+        }]);
+    </script>
+    <script>
+        var cell0 = Automata.Energy.Producer("Prod0", 1, 100, 0.01);
+        var cell1 = Automata.Energy.Producer("Prod1", 2, 200, 0.02);
+        var cell2 = Automata.Energy.Producer("Prod2", 8, 800, 0.08);
+        var con0 = Automata.Energy.Consumer("Cons0", 4, 0.001);
+        var con1 = Automata.Energy.Consumer("Cons1", 2, 0.001);
+        var con2 = Automata.Energy.Consumer("Cons2", 10, 0.005);
+        var con3 = Automata.Energy.Consumer("Cons3", 8, 0.001);
+        var con4 = Automata.Energy.Consumer("Cons4", 15, 0.01);
+        var con5 = Automata.Energy.Consumer("Cons5", 5, 0.05);
+        var con6 = Automata.Energy.Consumer("Cons6", 4, 0.04);
+        var con7 = Automata.Energy.Consumer("Cons7", 10, 0.03);
+        var con8 = Automata.Energy.ReproductiveConsumer("RCons8", 12, 0.02, 16, 0.6);
+        var con9 = Automata.Energy.ReproductiveConsumer("RCons9", 16, 0.02, 20, 0.3);
+        cell0.addOutConnection(con0);
+        cell0.addOutConnection(con1);
+        cell0.addOutConnection(con2);
+        cell0.addOutConnection(con3);
+        cell0.start();
+        cell1.addOutConnection(con2);
+        cell1.addOutConnection(con3);
+        cell1.addOutConnection(con4);
+        cell1.addOutConnection(con8);
+        cell1.start();
+        cell2.addOutConnection(con2);
+        cell2.addOutConnection(con4);
+        cell2.addOutConnection(con5);
+        cell2.addOutConnection(con6);
+        cell2.addOutConnection(con7);
+        cell2.addOutConnection(con9);
+        cell2.start();
+        con0.start();
+        con1.start();
+        con2.start();
+        con3.start();
+        con4.start();
+        con5.start();
+        con6.start();
+        con7.start();
+        con8.start();
+        con9.start();
+
+        monitor('automatonLifespan', 'lifespanTimeline', 'automatonGraph');
+    </script>
+    <div ng-controller="mainController">
+        <div style="display: inline-flex;">
+            <button ng-click="selected = 'automatonLifespan'">automatonLifespan</button>
+            <button ng-click="selected = 'automatonGraph'">automatonGraph</button>
+            <button ng-click="selected = 'lifespanTimeline'">lifespanTimeline</button>
+            <button ng-click="selected = 'lifespanAutomataTimeline'">lifespanAutomataTimeline</button>
+            <button ng-click="selected = 'automataStat'">automataStat</button>
+        </div>
+        <div class="panel" id="automatonLifespan" ng-show="selected == 'automatonLifespan'"></div>
+        <div class="panel" id="automatonGraph" ng-show="selected == 'automatonGraph'"></div>
+        <div class="panel" id="lifespanTimeline" ng-show="selected == 'lifespanTimeline'"></div>
+        <div class="panel" id="lifespanAutomataTimeline" ng-show="selected == 'lifespanAutomataTimeline'" style="overflow-y: auto;"></div>
+        <div class="panel" id="automataStat" ng-show="selected == 'automataStat'">
+            {{Automata.spawned().length}}
+        </div>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,49 @@
+<html>
+<head>
+    <script src="scripts/angular.js"></script>
+</head>
+<body ng-app="automataApp">
+    <style>
+        .panel {
+            height: calc(100vh - 38px);
+            min-height: calc(100vh - 38px);
+            max-height: calc(100vh - 38px);
+            box-shadow: 0px 0px 2px #000000;
+            background-color: #eeeeee;
+        }
+    </style>
+    <script src="scripts/loader.js"></script>
+    <script src="scripts/cytoscape.js"></script>
+    <script src="scripts/cytoscape-cose-bilkent.js"></script>
+    <script src="automata.js"></script>
+    <script src="automata-monitor.js"></script>
+    <script>
+        var app = angular.module("automataApp", []);
+        app.controller("mainController", ['$scope', function($scope) {
+            $scope.selected = 'automatonLifespan';
+        }]);
+    </script>
+    <script>
+        var cell0 = Automata.Energy.Producer("Prod0", 0.5, 4, 0.0);
+        var con0 = Automata.Energy.ReproductiveConsumer("Cons0", 1, 0.1, 2, 0.5);
+        cell0.addOutConnection(con0);
+        cell0.start();
+        con0.start();
+
+        monitor('automatonLifespan', 'lifespanTimeline', 'automatonGraph');
+    </script>
+    <div ng-controller="mainController">
+        <div style="display: inline-flex;">
+            <button ng-click="selected = 'automatonLifespan'">automatonLifespan</button>
+            <button ng-click="selected = 'automatonGraph'">automatonGraph</button>
+            <button ng-click="selected = 'lifespanTimeline'">lifespanTimeline</button>
+            <button ng-click="selected = 'lifespanAutomataTimeline'">lifespanAutomataTimeline</button>
+        </div>
+        <div class="panel" id="automatonLifespan" ng-show="selected == 'automatonLifespan'"></div>
+        <div class="panel" id="automatonGraph" ng-show="selected == 'automatonGraph'"></div>
+        <div class="panel" id="lifespanTimeline" ng-show="selected == 'lifespanTimeline'"></div>
+        <div class="panel" id="lifespanAutomataTimeline" ng-show="selected == 'lifespanAutomataTimeline'" style="overflow-y: auto;"></div>
+    </div>
+</body>
+
+</html>
